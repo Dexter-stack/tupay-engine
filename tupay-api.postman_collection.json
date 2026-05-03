@@ -1,0 +1,179 @@
+{
+  "info": {
+    "name": "Tupay Ledger & Settlement Engine",
+    "description": "Complete API flow for the Tupay cross-border remittance backend. Run requests in order: Login -> 2FA Verify -> Swap -> Ledger -> Webhook.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "tupay-engine"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "wallet_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "webhook_secret",
+      "value": "mock-secret-for-testing",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.token) {",
+              "    pm.collectionVariables.set('auth_token', json.token);",
+              "    console.log('Token saved:', json.token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"test@tupay.com\",\n    \"password\": \"password\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/login",
+          "host": ["{{base_url}}"],
+          "path": ["login"]
+        },
+        "description": "Authenticate with email and password. Token is automatically saved to the collection variable `auth_token`. Note: this does NOT grant access to 2FA-protected endpoints yet."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Verify 2FA",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "console.log('2FA response:', json.message);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/2fa/verify",
+          "host": ["{{base_url}}"],
+          "path": ["2fa", "verify"]
+        },
+        "description": "Submit a 6-digit TOTP code from your authenticator app (Google Authenticator, Authy). The 2FA secret was printed to the console when you ran `php artisan db:seed`. On success, a Redis key is set for 15 minutes that unlocks swap endpoints."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Execute Swap (NGN -> CNY)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"amount\": 100000\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/swap",
+          "host": ["{{base_url}}"],
+          "path": ["swap"]
+        },
+        "description": "Exchange NGN for CNY. `amount` is in kobo (subunits). 100,000 kobo = 1,000 NGN. Requires a valid 2FA session (step 2 must have been completed within the last 15 minutes). Returns both the debit (NGN) and credit (CNY) transaction records."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Ledger (NGN Wallet)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/ledger/{{wallet_id}}?page=1",
+          "host": ["{{base_url}}"],
+          "path": ["ledger", "{{wallet_id}}"],
+          "query": [{ "key": "page", "value": "1" }]
+        },
+        "description": "Retrieve paginated transaction history for a wallet. Default `wallet_id` is 1 (NGN wallet for the seeded user). Returns 15 records per page, ordered by most recent first. Change the wallet_id collection variable to 2 for the CNY wallet."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Settlement Webhook",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Compute HMAC-SHA256 signature using CryptoJS",
+              "const secret = pm.collectionVariables.get('webhook_secret');",
+              "const body = pm.request.body.raw;",
+              "const signature = CryptoJS.HmacSHA256(body, secret).toString(CryptoJS.enc.Hex);",
+              "pm.request.headers.add({ key: 'X-Tupay-Signature', value: signature });",
+              "console.log('Computed signature:', signature);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"provider_reference\": \"PARTNER-REF-001\",\n    \"status\": \"completed\",\n    \"amount\": 52000,\n    \"wallet_id\": 2\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhooks/settlement",
+          "host": ["{{base_url}}"],
+          "path": ["webhooks", "settlement"]
+        },
+        "description": "Simulate a third-party settlement partner confirming an RMB payout. The pre-request script automatically computes and attaches the HMAC-SHA256 signature using CryptoJS. Send this request twice with the same `provider_reference` to verify idempotency — the second call returns 200 (already processed) without crediting the wallet again. Requires the queue worker to be running for actual ledger update."
+      },
+      "response": []
+    }
+  ]
+}
