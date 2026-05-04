@@ -18,14 +18,19 @@ class AppServiceProvider extends ServiceProvider
 
     private function configureRateLimiters(): void
     {
+        // Login and 2FA verification — strict to block brute-force
         RateLimiter::for('api_auth', function (Request $request) {
-            return Limit::perMinute(5)->by($request->ip());
+            return Limit::perMinute(10)->by($request->ip());
         });
 
+        // Financial operations — per authenticated user, fallback to IP
         RateLimiter::for('api_financial', function (Request $request) {
-            return Limit::perMinute(30)->by(optional($request->user())->id ?: $request->ip());
+            return Limit::perMinute(30)->by(
+                optional($request->user())->id ?: $request->ip()
+            );
         });
 
+        // Webhooks — per IP, generous since partner may batch retries
         RateLimiter::for('api_webhook', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });

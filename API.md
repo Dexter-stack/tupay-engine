@@ -467,18 +467,22 @@ TOTP codes rotate every **30 seconds**. You have two options to get a valid code
 Run this command any time you need a fresh code:
 
 ```bash
-php artisan tinker --execute="
-use PragmaRX\Google2FA\Google2FA;
-use App\Models\User;
-\$user = User::where('email', 'test@tupay.com')->first();
-echo (new Google2FA())->getCurrentOtp(\$user->google2fa_secret);
-"
+php otp.php
 ```
 
-The output is a 6-digit code valid for the next ~30 seconds. Use it immediately in your request body:
+Output:
+
+```
+==============================
+  2FA Code : 862755
+  Valid for : ~30 seconds
+==============================
+```
+
+Use the code immediately in your request body:
 
 ```json
-{ "code": "639911" }
+{ "code": "862755" }
 ```
 
 ### Option 2 — Use an authenticator app (permanent)
@@ -511,12 +515,7 @@ Copy the `token` from the response.
 ### Step 2 — Get a 2FA code
 
 ```bash
-php artisan tinker --execute="
-use PragmaRX\Google2FA\Google2FA;
-use App\Models\User;
-\$user = User::where('email', 'test@tupay.com')->first();
-echo (new Google2FA())->getCurrentOtp(\$user->google2fa_secret);
-"
+php otp.php
 ```
 
 ### Step 3 — Verify 2FA
@@ -561,14 +560,9 @@ Returns the NGN wallet transaction history. Use wallet ID `2` for CNY.
 Generate the signature first:
 
 ```bash
-php artisan tinker --execute="
-\$body = json_encode([
-    'provider_reference' => 'PARTNER-REF-001',
-    'status' => 'completed',
-    'amount' => 52000,
-    'wallet_id' => 2,
-]);
-echo hash_hmac('sha256', \$body, 'mock-secret-for-testing');
+php -r "
+  \$body = json_encode(['provider_reference'=>'PARTNER-REF-001','status'=>'completed','amount'=>52000,'wallet_id'=>2]);
+  echo hash_hmac('sha256', \$body, 'mock-secret-for-testing');
 "
 ```
 

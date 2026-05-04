@@ -166,15 +166,11 @@ TOTP codes rotate every 30 seconds. You have two options:
 **Option 1 — Generate via terminal (no phone needed)**
 
 ```bash
-php artisan tinker --execute="
-use PragmaRX\Google2FA\Google2FA;
-use App\Models\User;
-\$user = User::where('email', 'test@tupay.com')->first();
-echo (new Google2FA())->getCurrentOtp(\$user->google2fa_secret);
-"
+php otp.php
 ```
 
-The output is a 6-digit code valid for ~30 seconds. Use it immediately in `POST /api/2fa/verify`.
+Prints a 6-digit code valid for ~30 seconds. Use it immediately in `POST /api/2fa/verify`.
+The script is included in the project root (`otp.php`).
 
 **Option 2 — Authenticator app (permanent)**
 
