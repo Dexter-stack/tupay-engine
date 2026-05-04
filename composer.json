@@ -11,7 +11,8 @@
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^2.10.1",
-        "pragmarx/google2fa-laravel": "^3.0"
+        "pragmarx/google2fa-laravel": "^3.0",
+        "predis/predis": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

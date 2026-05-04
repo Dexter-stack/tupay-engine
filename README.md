@@ -159,6 +159,27 @@ POST /api/swap  (Authorization: Bearer {token})
 
 **Why Redis and not a session flag?** The API is stateless — tokens do not carry session state. Storing the 2FA clearance in Redis with a 900-second TTL gives a time-bounded, server-side gate that cannot be spoofed by the client. The flag is checked on **every** protected request, not once at login.
 
+### Getting a Valid TOTP Code for Testing
+
+TOTP codes rotate every 30 seconds. You have two options:
+
+**Option 1 — Generate via terminal (no phone needed)**
+
+```bash
+php artisan tinker --execute="
+use PragmaRX\Google2FA\Google2FA;
+use App\Models\User;
+\$user = User::where('email', 'test@tupay.com')->first();
+echo (new Google2FA())->getCurrentOtp(\$user->google2fa_secret);
+"
+```
+
+The output is a 6-digit code valid for ~30 seconds. Use it immediately in `POST /api/2fa/verify`.
+
+**Option 2 — Authenticator app (permanent)**
+
+Run `php artisan db:seed` — the 2FA secret is printed to the console. Add it manually to Google Authenticator or Authy for a live rotating code.
+
 ---
 
 ## Webhook Security
