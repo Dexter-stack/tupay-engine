@@ -19,7 +19,16 @@ class SwapController extends Controller
         ]);
 
         try {
-            $result = $action->execute($request->user(), $validated['amount']);
+            $result = $action->execute(
+                $request->user(),
+                $validated['amount'],
+                'NGN',
+                'CNY',
+                [
+                    'ip_address' => $request->ip(),
+                    'device_id'  => $request->userAgent(),
+                ],
+            );
         } catch (SwapInProgressException $e) {
             return response()->json(['message' => $e->getMessage()], 409);
         } catch (InsufficientFundsException $e) {

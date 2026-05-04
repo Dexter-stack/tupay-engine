@@ -25,7 +25,7 @@ final class ExecuteSwapAction
      * @throws SwapInProgressException
      * @throws InsufficientFundsException
      */
-    public function execute(User $user, int $amountInKobo, string $from = 'NGN', string $to = 'CNY'): array
+    public function execute(User $user, int $amountInKobo, string $from = 'NGN', string $to = 'CNY', array $auditContext = []): array
     {
         $lock = Cache::lock("swap_lock:{$user->id}", 30);
 
@@ -39,12 +39,12 @@ final class ExecuteSwapAction
             $amountOut = (int) bcmul((string) $amountInKobo, $rate, 0);
 
             $swapReference = (string) Str::uuid();
-            $metadata = [
+            $metadata = array_merge([
                 'swap_reference' => $swapReference,
                 'swap_rate' => $rate,
                 'from_currency' => $from,
                 'to_currency' => $to,
-            ];
+            ], $auditContext);
 
             [$debitTx, $creditTx] = DB::transaction(function () use ($user, $amountInKobo, $amountOut, $from, $to, $swapReference, $metadata) {
                 $fromWallet = $user->wallets()->where('currency', $from)->lockForUpdate()->firstOrFail();
